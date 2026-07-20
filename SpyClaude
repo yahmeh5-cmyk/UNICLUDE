@@ -1,0 +1,509 @@
+--[[
+    Mobile Roblox Spy Tool
+    Otimizado para iOS/Delta Executor
+    Captura: Remotes, Logs, Workspace, Argumentos
+]]
+
+local SpyTool = {}
+SpyTool.Data = {
+    remotes = {},
+    logs = {},
+    workspace = {},
+    connections = {}
+}
+
+-- Configurações de performance
+local Config = {
+    maxLogs = 500,
+    updateInterval = 0.5,
+    compressionEnabled = true
+}
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+
+-- UI Principal
+local function createUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "SpyTool"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    -- Proteção contra detecção
+    if gethui then
+        ScreenGui.Parent = gethui()
+    elseif syn and syn.protect_gui then
+        syn.protect_gui(ScreenGui)
+        ScreenGui.Parent = CoreGui
+    else
+        ScreenGui.Parent = CoreGui
+    end
+    
+    -- Frame Principal (otimizado para mobile)
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 350, 0, 500)
+    MainFrame.Position = UDim2.new(0.5, -175, 0.5, -250)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    MainFrame.Parent = ScreenGui
+    
+    -- Corner
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = MainFrame
+    
+    -- Header
+    local Header = Instance.new("Frame")
+    Header.Name = "Header"
+    Header.Size = UDim2.new(1, 0, 0, 45)
+    Header.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    Header.BorderSizePixel = 0
+    Header.Parent = MainFrame
+    
+    local HeaderCorner = Instance.new("UICorner")
+    HeaderCorner.CornerRadius = UDim.new(0, 10)
+    HeaderCorner.Parent = Header
+    
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(1, -80, 1, 0)
+    Title.Position = UDim2.new(0, 10, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = "🔍 Roblox Spy Tool"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 18
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = Header
+    
+    -- Botão Minimizar
+    local MinimizeBtn = Instance.new("TextButton")
+    MinimizeBtn.Name = "MinimizeBtn"
+    MinimizeBtn.Size = UDim2.new(0, 35, 0, 35)
+    MinimizeBtn.Position = UDim2.new(1, -70, 0, 5)
+    MinimizeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    MinimizeBtn.Text = "−"
+    MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MinimizeBtn.TextSize = 20
+    MinimizeBtn.Font = Enum.Font.GothamBold
+    MinimizeBtn.Parent = Header
+    
+    local MinCorner = Instance.new("UICorner")
+    MinCorner.CornerRadius = UDim.new(0, 8)
+    MinCorner.Parent = MinimizeBtn
+    
+    -- Botão Fechar
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Name = "CloseBtn"
+    CloseBtn.Size = UDim2.new(0, 35, 0, 35)
+    CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+    CloseBtn.Text = "×"
+    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseBtn.TextSize = 24
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.Parent = Header
+    
+    local CloseCorner = Instance.new("UICorner")
+    CloseCorner.CornerRadius = UDim.new(0, 8)
+    CloseCorner.Parent = CloseBtn
+    
+    -- Tabs Container
+    local TabsContainer = Instance.new("Frame")
+    TabsContainer.Name = "TabsContainer"
+    TabsContainer.Size = UDim2.new(1, 0, 0, 40)
+    TabsContainer.Position = UDim2.new(0, 0, 0, 45)
+    TabsContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    TabsContainer.BorderSizePixel = 0
+    TabsContainer.Parent = MainFrame
+    
+    local TabsList = Instance.new("UIListLayout")
+    TabsList.FillDirection = Enum.FillDirection.Horizontal
+    TabsList.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    TabsList.SortOrder = Enum.SortOrder.LayoutOrder
+    TabsList.Padding = UDim.new(0, 2)
+    TabsList.Parent = TabsContainer
+    
+    -- Content Frame
+    local ContentFrame = Instance.new("ScrollingFrame")
+    ContentFrame.Name = "ContentFrame"
+    ContentFrame.Size = UDim2.new(1, -10, 1, -135)
+    ContentFrame.Position = UDim2.new(0, 5, 0, 85)
+    ContentFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    ContentFrame.BorderSizePixel = 0
+    ContentFrame.ScrollBarThickness = 4
+    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ContentFrame.Parent = MainFrame
+    
+    local ContentCorner = Instance.new("UICorner")
+    ContentCorner.CornerRadius = UDim.new(0, 8)
+    ContentCorner.Parent = ContentFrame
+    
+    local ContentList = Instance.new("UIListLayout")
+    ContentList.SortOrder = Enum.SortOrder.LayoutOrder
+    ContentList.Padding = UDim.new(0, 3)
+    ContentList.Parent = ContentFrame
+    
+    -- Botão Exportar
+    local ExportBtn = Instance.new("TextButton")
+    ExportBtn.Name = "ExportBtn"
+    ExportBtn.Size = UDim2.new(1, -20, 0, 40)
+    ExportBtn.Position = UDim2.new(0, 10, 1, -50)
+    ExportBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 250)
+    ExportBtn.Text = "📋 Exportar para Clipboard"
+    ExportBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ExportBtn.TextSize = 16
+    ExportBtn.Font = Enum.Font.GothamBold
+    ExportBtn.Parent = MainFrame
+    
+    local ExportCorner = Instance.new("UICorner")
+    ExportCorner.CornerRadius = UDim.new(0, 8)
+    ExportCorner.Parent = ExportBtn
+    
+    return ScreenGui, MainFrame, ContentFrame, TabsContainer, ExportBtn, MinimizeBtn, CloseBtn
+end
+
+-- Criar Tab
+local function createTab(parent, name, order)
+    local Tab = Instance.new("TextButton")
+    Tab.Name = name .. "Tab"
+    Tab.Size = UDim2.new(0, 80, 1, -4)
+    Tab.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    Tab.Text = name
+    Tab.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Tab.TextSize = 13
+    Tab.Font = Enum.Font.GothamBold
+    Tab.LayoutOrder = order
+    Tab.Parent = parent
+    
+    local TabCorner = Instance.new("UICorner")
+    TabCorner.CornerRadius = UDim.new(0, 6)
+    TabCorner.Parent = Tab
+    
+    return Tab
+end
+
+-- Criar Entry de Log
+local function createLogEntry(parent, data)
+    local Entry = Instance.new("Frame")
+    Entry.Size = UDim2.new(1, 0, 0, 0)
+    Entry.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    Entry.BorderSizePixel = 0
+    Entry.AutomaticSize = Enum.AutomaticSize.Y
+    Entry.Parent = parent
+    
+    local EntryCorner = Instance.new("UICorner")
+    EntryCorner.CornerRadius = UDim.new(0, 6)
+    EntryCorner.Parent = Entry
+    
+    local Padding = Instance.new("UIPadding")
+    Padding.PaddingLeft = UDim.new(0, 8)
+    Padding.PaddingRight = UDim.new(0, 8)
+    Padding.PaddingTop = UDim.new(0, 6)
+    Padding.PaddingBottom = UDim.new(0, 6)
+    Padding.Parent = Entry
+    
+    local Text = Instance.new("TextLabel")
+    Text.Size = UDim2.new(1, 0, 0, 0)
+    Text.BackgroundTransparency = 1
+    Text.Text = data
+    Text.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Text.TextSize = 12
+    Text.Font = Enum.Font.Code
+    Text.TextXAlignment = Enum.TextXAlignment.Left
+    Text.TextYAlignment = Enum.TextYAlignment.Top
+    Text.TextWrapped = true
+    Text.AutomaticSize = Enum.AutomaticSize.Y
+    Text.Parent = Entry
+    
+    return Entry
+end
+
+-- Serializar argumentos de forma segura
+local function serializeArgs(args)
+    local result = {}
+    for i, v in ipairs(args) do
+        local success, serialized = pcall(function()
+            if typeof(v) == "Instance" then
+                return string.format("[%s] %s", v.ClassName, v:GetFullName())
+            elseif typeof(v) == "table" then
+                return HttpService:JSONEncode(v)
+            else
+                return tostring(v)
+            end
+        end)
+        table.insert(result, success and serialized or "[Error serializing]")
+    end
+    return table.concat(result, ", ")
+end
+
+-- Hook de Remotes otimizado
+local function hookRemotes()
+    local function hookRemote(remote)
+        if SpyTool.Data.connections[remote] then return end
+        
+        local originalNamecall
+        originalNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
+            
+            if self == remote and (method == "FireServer" or method == "InvokeServer") then
+                local logEntry = {
+                    type = remote.ClassName,
+                    name = remote:GetFullName(),
+                    method = method,
+                    args = args,
+                    time = os.date("%H:%M:%S")
+                }
+                
+                table.insert(SpyTool.Data.remotes, logEntry)
+                
+                -- Limitar logs para performance
+                if #SpyTool.Data.remotes > Config.maxLogs then
+                    table.remove(SpyTool.Data.remotes, 1)
+                end
+            end
+            
+            return originalNamecall(self, ...)
+        end)
+        
+        SpyTool.Data.connections[remote] = true
+    end
+    
+    -- Hook remotes existentes
+    for _, descendant in ipairs(game:GetDescendants()) do
+        if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
+            hookRemote(descendant)
+        end
+    end
+    
+    -- Hook novos remotes
+    game.DescendantAdded:Connect(function(descendant)
+        if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
+            task.wait(0.1)
+            hookRemote(descendant)
+        end
+    end)
+end
+
+-- Capturar Workspace
+local function captureWorkspace()
+    local function scanInstance(instance, depth)
+        if depth > 5 then return "..." end
+        
+        local info = {
+            name = instance.Name,
+            class = instance.ClassName,
+            children = {}
+        }
+        
+        for _, child in ipairs(instance:GetChildren()) do
+            if #info.children < 10 then
+                table.insert(info.children, scanInstance(child, depth + 1))
+            end
+        end
+        
+        return info
+    end
+    
+    SpyTool.Data.workspace = scanInstance(workspace, 0)
+end
+
+-- Exportar dados
+local function exportData()
+    local exportText = "=== ROBLOX SPY TOOL EXPORT ===\n\n"
+    
+    exportText = exportText .. "🌐 GAME INFO:\n"
+    exportText = exportText .. "Name: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name .. "\n"
+    exportText = exportText .. "PlaceId: " .. tostring(game.PlaceId) .. "\n"
+    exportText = exportText .. "JobId: " .. game.JobId .. "\n\n"
+    
+    exportText = exportText .. "📡 REMOTE EVENTS (" .. #SpyTool.Data.remotes .. " captured):\n"
+    for i, remote in ipairs(SpyTool.Data.remotes) do
+        exportText = exportText .. string.format(
+            "[%s] %s::%s(%s)\n",
+            remote.time,
+            remote.name,
+            remote.method,
+            serializeArgs(remote.args)
+        )
+        if i >= 100 then
+            exportText = exportText .. "... (limited to 100 entries)\n"
+            break
+        end
+    end
+    
+    exportText = exportText .. "\n📝 LOGS (" .. #SpyTool.Data.logs .. " entries):\n"
+    for i, log in ipairs(SpyTool.Data.logs) do
+        exportText = exportText .. log .. "\n"
+        if i >= 50 then
+            exportText = exportText .. "... (limited to 50 entries)\n"
+            break
+        end
+    end
+    
+    return exportText
+end
+
+-- Copiar para clipboard (iOS/Delta)
+local function copyToClipboard(text)
+    if setclipboard then
+        setclipboard(text)
+        return true
+    elseif syn and syn.write_clipboard then
+        syn.write_clipboard(text)
+        return true
+    elseif Clipboard and Clipboard.set then
+        Clipboard.set(text)
+        return true
+    end
+    return false
+end
+
+-- Inicializar
+local function initialize()
+    local ScreenGui, MainFrame, ContentFrame, TabsContainer, ExportBtn, MinimizeBtn, CloseBtn = createUI()
+    
+    -- Criar tabs
+    local remotesTab = createTab(TabsContainer, "Remotes", 1)
+    local logsTab = createTab(TabsContainer, "Logs", 2)
+    local workspaceTab = createTab(TabsContainer, "Workspace", 3)
+    
+    local currentTab = "Remotes"
+    
+    -- Sistema de tabs
+    local function switchTab(tabName, button)
+        currentTab = tabName
+        
+        for _, child in ipairs(TabsContainer:GetChildren()) do
+            if child:IsA("TextButton") then
+                child.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+                child.TextColor3 = Color3.fromRGB(200, 200, 200)
+            end
+        end
+        
+        button.BackgroundColor3 = Color3.fromRGB(50, 150, 250)
+        button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        
+        -- Limpar conteúdo
+        for _, child in ipairs(ContentFrame:GetChildren()) do
+            if not child:IsA("UIListLayout") then
+                child:Destroy()
+            end
+        end
+    end
+    
+    remotesTab.MouseButton1Click:Connect(function()
+        switchTab("Remotes", remotesTab)
+    end)
+    
+    logsTab.MouseButton1Click:Connect(function()
+        switchTab("Logs", logsTab)
+    end)
+    
+    workspaceTab.MouseButton1Click:Connect(function()
+        switchTab("Workspace", workspaceTab)
+        captureWorkspace()
+    end)
+    
+    -- Atualizar conteúdo
+    local lastUpdate = 0
+    RunService.Heartbeat:Connect(function()
+        if tick() - lastUpdate < Config.updateInterval then return end
+        lastUpdate = tick()
+        
+        if currentTab == "Remotes" then
+            -- Mostrar últimos 50 remotes
+            local startIndex = math.max(1, #SpyTool.Data.remotes - 49)
+            for i = startIndex, #SpyTool.Data.remotes do
+                local remote = SpyTool.Data.remotes[i]
+                local existing = ContentFrame:FindFirstChild("Remote_" .. i)
+                if not existing then
+                    local entry = createLogEntry(
+                        ContentFrame,
+                        string.format(
+                            "[%s] %s::%s\nArgs: %s",
+                            remote.time,
+                            remote.name,
+                            remote.method,
+                            serializeArgs(remote.args)
+                        )
+                    )
+                    entry.Name = "Remote_" .. i
+                end
+            end
+        elseif currentTab == "Workspace" then
+            local function displayTree(data, depth)
+                local indent = string.rep("  ", depth)
+                local text = string.format("%s[%s] %s", indent, data.class, data.name)
+                createLogEntry(ContentFrame, text)
+                
+                for _, child in ipairs(data.children) do
+                    displayTree(child, depth + 1)
+                end
+            end
+            
+            if SpyTool.Data.workspace.name then
+                displayTree(SpyTool.Data.workspace, 0)
+            end
+        end
+    end)
+    
+    -- Botão exportar
+    ExportBtn.MouseButton1Click:Connect(function()
+        local data = exportData()
+        if copyToClipboard(data) then
+            ExportBtn.Text = "✅ Copiado!"
+            ExportBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+            task.wait(2)
+            ExportBtn.Text = "📋 Exportar para Clipboard"
+            ExportBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 250)
+        else
+            ExportBtn.Text = "❌ Erro ao copiar"
+            ExportBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+            task.wait(2)
+            ExportBtn.Text = "📋 Exportar para Clipboard"
+            ExportBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 250)
+        end
+    end)
+    
+    -- Minimizar
+    local minimized = false
+    MinimizeBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        MainFrame:TweenSize(
+            minimized and UDim2.new(0, 350, 0, 45) or UDim2.new(0, 350, 0, 500),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Quad,
+            0.3,
+            true
+        )
+        MinimizeBtn.Text = minimized and "+" or "−"
+    end)
+    
+    -- Fechar
+    CloseBtn.MouseButton1Click:Connect(function()
+        ScreenGui:Destroy()
+        for remote, _ in pairs(SpyTool.Data.connections) do
+            SpyTool.Data.connections[remote] = nil
+        end
+    end)
+    
+    -- Iniciar hooks
+    hookRemotes()
+    
+    -- Tab inicial
+    switchTab("Remotes", remotesTab)
+    
+    print("[Spy Tool] Inicializado com sucesso!")
+end
+
+-- Executar
+initialize()
